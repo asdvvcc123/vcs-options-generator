@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VCS 编译/仿真选项生成器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-bottom: 1px solid #334155;
+            padding: 20px 0;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .header .container {
+            max-width: 1400px; margin: 0 auto; padding: 0 24px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .header h1 { font-size: 1.5rem; color: #38bdf8; }
+        .header h1 span { color: #94a3b8; font-size: 0.85rem; margin-left: 12px; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* Tab 导航 */
+        .tabs {
+            display: flex; gap: 4px; margin-bottom: 24px;
+            background: #1e293b; border-radius: 12px; padding: 4px;
+        }
+        .tab-btn {
+            flex: 1; padding: 12px 20px; border: none; background: transparent;
+            color: #94a3b8; cursor: pointer; border-radius: 8px;
+            font-size: 0.95rem; font-weight: 600; transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #e2e8f0; background: #334155; }
+        .tab-btn.active { background: #38bdf8; color: #0f172a; }
+
+        /* 选项面板 */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* 选项组 */
+        .opt-group {
+            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            margin-bottom: 16px; overflow: hidden;
+        }
+        .opt-group-title {
+            padding: 14px 20px; font-size: 0.9rem; font-weight: 700;
+            color: #38bdf8; background: #1e293b;
+            border-bottom: 1px solid #334155; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            user-select: none;
+        }
+        .opt-group-title::after { content: '▼'; font-size: 0.7rem; color: #64748b; transition: transform 0.2s; }
+        .opt-group.collapsed .opt-group-title::after { transform: rotate(-90deg); }
+        .opt-group.collapsed .opt-group-body { display: none; }
+        .opt-group-body { padding: 12px 16px; }
+
+        /* 选项行 */
+        .opt-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 4px; border-bottom: 1px solid #1a2332;
+            transition: background 0.15s;
+        }
+        .opt-row:last-child { border-bottom: none; }
+        .opt-row:hover { background: #253349; }
+        .opt-row input[type="checkbox"] {
+            width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer; flex-shrink: 0;
+        }
+        .opt-row label { cursor: pointer; flex: 1; display: flex; align-items: center; gap: 10px; }
+        .opt-flag {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: #0f172a; color: #fbbf24; padding: 3px 10px;
+            border-radius: 6px; font-size: 0.82rem; white-space: nowrap;
+            border: 1px solid #334155;
+        }
+        .opt-desc { color: #cbd5e1; font-size: 0.88rem; line-height: 1.5; }
+        .opt-row input[type="text"] {
+            background: #0f172a; border: 1px solid #475569; color: #e2e8f0;
+            padding: 4px 10px; border-radius: 6px; font-size: 0.82rem;
+            font-family: 'Consolas', monospace; width: 180px;
+        }
+        .opt-row input[type="text"]:focus { outline: none; border-color: #38bdf8; }
+        .opt-row select {
+            background: #0f172a; border: 1px solid #475569; color: #e2e8f0;
+            padding: 4px 8px; border-radius: 6px; font-size: 0.82rem;
+        }
+        .opt-row select:focus { outline: none; border-color: #38bdf8; }
+
+        /* 生成区域 */
+        .gen-section {
+            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            padding: 24px; margin-top: 24px;
+        }
+        .gen-section h3 { color: #38bdf8; margin-bottom: 16px; font-size: 1.1rem; }
+        .gen-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .gen-row input[type="text"] {
+            flex: 1; min-width: 200px; background: #0f172a; border: 1px solid #475569;
+            color: #e2e8f0; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem;
+        }
+        .gen-row input[type="text"]:focus { outline: none; border-color: #38bdf8; }
+        .gen-row input::placeholder { color: #64748b; }
+        .gen-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn {
+            padding: 10px 24px; border: none; border-radius: 8px;
+            font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-primary { background: #38bdf8; color: #0f172a; }
+        .btn-primary:hover { background: #7dd3fc; }
+        .btn-secondary { background: #334155; color: #e2e8f0; }
+        .btn-secondary:hover { background: #475569; }
+        .btn-success { background: #4ade80; color: #0f172a; }
+        .btn-success:hover { background: #86efac; }
+
+        /* 输出区域 */
+        .output-area {
+            background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+            padding: 16px; margin-top: 16px;
+            max-height: 400px; overflow-y: auto; line-height: 1.6;
+            display: none;
+        }
+        .output-area.show { display: block; }
+        .output-area textarea {
+            width: 100%; min-height: 300px;
+            background: #0f172a; color: #a5f3fc;
+            border: none; resize: vertical;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem; line-height: 1.6;
+            outline: none;
+        }
+
+        /* 统计 */
+        .stats {
+            display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .stat-badge {
+            background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+            padding: 8px 16px; font-size: 0.85rem; color: #94a3b8;
+        }
+        .stat-badge strong { color: #38bdf8; }
+
+        /* 搜索 */
+        .search-bar {
+            margin-bottom: 16px;
+        }
+        .search-bar input {
+            width: 100%; background: #0f172a; border: 1px solid #475569;
+            color: #e2e8f0; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem;
+        }
+        .search-bar input:focus { outline: none; border-color: #38bdf8; }
+        .search-bar input::placeholder { color: #64748b; }
+
+        /* 预设方案卡片 */
+        .preset-card {
+            background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.15s;
+        }
+        .preset-card:hover { background: #1a2332; }
+        .preset-card .preset-info { flex: 1; }
+        .preset-card .preset-name { color: #38bdf8; font-weight: 600; font-size: 0.95rem; }
+        .preset-card .preset-meta { color: #64748b; font-size: 0.8rem; margin-top: 2px; }
+        .preset-card .preset-actions { display: flex; gap: 8px; }
+        .preset-card .preset-actions button {
+            padding: 5px 12px; border: none; border-radius: 6px;
+            font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+        }
+        .preset-card .btn-load { background: #334155; color: #e2e8f0; }
+        .preset-card .btn-load:hover { background: #475569; }
+        .preset-card .btn-del { background: #7f1d1d; color: #fca5a5; }
+        .preset-card .btn-del:hover { background: #991b1b; }
+
+        /* 自定义选项 */
+        .custom-opt-item {
+            background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+            padding: 10px 16px; margin-bottom: 6px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .custom-opt-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #38bdf8; }
+        .custom-opt-item .custom-cat-tag {
+            background: #334155; color: #94a3b8; padding: 2px 8px;
+            border-radius: 4px; font-size: 0.75rem;
+        }
+        .custom-opt-item .custom-del {
+            margin-left: auto; background: none; border: none;
+            color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+        }
+        .custom-opt-item .custom-del:hover { color: #f87171; }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        @media (max-width: 768px) {
+            .opt-row { flex-wrap: wrap; }
+            .opt-flag { font-size: 0.75rem; }
+            .opt-desc { font-size: 0.82rem; }
+            .gen-row input[type="text"] { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>VCS 选项生成器 <span>Synopsys VCS Compile & Sim Options</span></h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('compile')">编译选项 (Compile)</button>
+            <button class="tab-btn" onclick="switchTab('sim')">仿真选项 (Simulation)</button>
+            <button class="tab-btn" onclick="switchTab('debug')">调试选项 (Debug)</button>
+            <button class="tab-btn" onclick="switchTab('coverage')">覆盖率 (Coverage)</button>
+            <button class="tab-btn" onclick="switchTab('custom')">自定义 (Custom)</button>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-badge">已选编译选项: <strong id="stat-compile">0</strong></div>
+            <div class="stat-badge">已选仿真选项: <strong id="stat-sim">0</strong></div>
+            <div class="stat-badge">已选调试选项: <strong id="stat-debug">0</strong></div>
+            <div class="stat-badge">已选覆盖率选项: <strong id="stat-coverage">0</strong></div>
+            <div class="stat-badge">已选自定义选项: <strong id="stat-custom">0</strong></div>
+        </div>
+
+        <!-- ===== 编译选项 ===== -->
+        <div id="tab-compile" class="tab-panel active">
+            <div class="search-bar">
+                <input type="text" placeholder="搜索编译选项..." oninput="filterOptions('compile', this.value)">
+            </div>
+
+            <div class="opt-group" data-category="compile">
+                <div class="opt-group-title" onclick="toggleGroup(this)">基础编译</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-f" data-flag="-f" data-type="param" data-param-id="c-f-val" onchange="updateStats()">
+                        <label for="c-f"><span class="opt-flag">-f</span>
+                        <input type="text" id="c-f-val" placeholder="filelist.f" style="margin-left:8px">
+                        <span class="opt-desc">指定文件列表</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-o" data-flag="-o" data-type="param" data-param-id="c-o-val" onchange="updateStats()">
+                        <label for="c-o"><span class="opt-flag">-o</span>
+                        <input type="text" id="c-o-val" placeholder="simv" style="margin-left:8px">
+                        <span class="opt-desc">指定输出可执行文件名</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-l" data-flag="-l" data-type="param" data-param-id="c-l-val" onchange="updateStats()">
+                        <label for="c-l"><span class="opt-flag">-l</span>
+                        <input type="text" id="c-l-val" placeholder="compile.log" style="margin-left:8px">
+                        <span class="opt-desc">指定编译log文件</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-R" data-flag="-R" data-type="flag" onchange="updateStats()">
+                        <label for="c-R"><span class="opt-flag">-R</span>
+                        <span class="opt-desc">编译后立即执行仿真</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-sverilog" data-flag="-sverilog" data-type="flag" onchange="updateStats()">
+                        <label for="c-sverilog"><span class="opt-flag">-sverilog</span>
+                        <span class="opt-desc">支持SystemVerilog</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-v2k" data-flag="+v2k" data-type="flag" onchange="updateStats()">
+                        <label for="c-v2k"><span class="opt-flag">+v2k</span>
+                        <span class="opt-desc">支持Verilog-2001标准</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-full64" data-flag="-full64" data-type="flag" onchange="updateStats()">
+                        <label for="c-full64"><span class="opt-flag">-full64</span>
+                        <span class="opt-desc">64-bit模式编译和仿真</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-j" data-flag="-j" data-type="param" data-param-id="c-j-val" onchange="updateStats()">
+                        <label for="c-j"><span class="opt-flag">-j</span>
+                        <input type="text" id="c-j-val" placeholder="8" style="margin-left:8px;width:60px">
+                        <span class="opt-desc">并行编译进程数</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-notice" data-flag="-notice" data-type="flag" onchange="updateStats()">
+                        <label for="c-notice"><span class="opt-flag">-notice</span>
+                        <span class="opt-desc">显示详细诊断信息</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-q" data-flag="-q" data-type="flag" onchange="updateStats()">
+                        <label for="c-q"><span class="opt-flag">-q</span>
+                        <span class="opt-desc">安静模式，屏蔽编译信息</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="compile">
+                <div class="opt-group-title" onclick="toggleGroup(this)">宏定义与文件搜索</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-define" data-flag="+define+" data-type="param" data-param-id="c-define-val" onchange="updateStats()">
+                        <label for="c-define"><span class="opt-flag">+define+</span>
+                        <input type="text" id="c-define-val" placeholder="MACRO=value" style="margin-left:8px">
+                        <span class="opt-desc">预编译宏定义</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-incdir" data-flag="+incdir+" data-type="param" data-param-id="c-incdir-val" onchange="updateStats()">
+                        <label for="c-incdir"><span class="opt-flag">+incdir+</span>
+                        <input type="text" id="c-incdir-val" placeholder="./include" style="margin-left:8px">
+                        <span class="opt-desc">添加include搜索目录</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-y" data-flag="-y" data-type="param" data-param-id="c-y-val" onchange="updateStats()">
+                        <label for="c-y"><span class="opt-flag">-y</span>
+                        <input type="text" id="c-y-val" placeholder="./rtl_lib" style="margin-left:8px">
+                        <span class="opt-desc">指定Verilog库路径</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-v" data-flag="-v" data-type="param" data-param-id="c-v-val" onchange="updateStats()">
+                        <label for="c-v"><span class="opt-flag">-v</span>
+                        <input type="text" id="c-v-val" placeholder="library.v" style="margin-left:8px">
+                        <span class="opt-desc">指定Verilog库文件</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-libext" data-flag="+libext+" data-type="param" data-param-id="c-libext-val" onchange="updateStats()">
+                        <label for="c-libext"><span class="opt-flag">+libext+</span>
+                        <input type="text" id="c-libext-val" placeholder=".v+.sv" style="margin-left:8px">
+                        <span class="opt-desc">库文件扩展名（配合-y使用）</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="compile">
+                <div class="opt-group-title" onclick="toggleGroup(this)">时序与SDF</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-nospecify" data-flag="+nospecify" data-type="flag" onchange="updateStats()">
+                        <label for="c-nospecify"><span class="opt-flag">+nospecify</span>
+                        <span class="opt-desc">屏蔽specify块中的路径延时和时序检查</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-notimingcheck" data-flag="+notimingcheck" data-type="flag" onchange="updateStats()">
+                        <label for="c-notimingcheck"><span class="opt-flag">+notimingcheck</span>
+                        <span class="opt-desc">屏蔽specify块中的时序检查（保留路径延时）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-maxdelays" data-flag="+maxdelays" data-type="flag" onchange="updateStats()">
+                        <label for="c-maxdelays"><span class="opt-flag">+maxdelays</span>
+                        <span class="opt-desc">使用SDF文件中的max延时值</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-mindelays" data-flag="+mindelays" data-type="flag" onchange="updateStats()">
+                        <label for="c-mindelays"><span class="opt-flag">+mindelays</span>
+                        <span class="opt-desc">使用SDF文件中的min延时值</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-typdelays" data-flag="+typdelays" data-type="flag" onchange="updateStats()">
+                        <label for="c-typdelays"><span class="opt-flag">+typdelays</span>
+                        <span class="opt-desc">使用SDF文件中的typ延时值</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-neg_tchk" data-flag="+neg_tchk" data-type="flag" onchange="updateStats()">
+                        <label for="c-neg_tchk"><span class="opt-flag">+neg_tchk</span>
+                        <span class="opt-desc">使能时序检查中的负延时</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-sdfverbose" data-flag="+sdfverbose" data-type="flag" onchange="updateStats()">
+                        <label for="c-sdfverbose"><span class="opt-flag">+sdfverbose</span>
+                        <span class="opt-desc">显示SDF反标的详细告警和错误</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="compile">
+                <div class="opt-group-title" onclick="toggleGroup(this)">初始化与优化</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-initreg" data-flag="+vcs+initreg+" data-type="select" data-param-id="c-initreg-val" onchange="updateStats()">
+                        <label for="c-initreg"><span class="opt-flag">+vcs+initreg+</span>
+                        <select id="c-initreg-val" style="margin-left:8px">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="x" selected>x</option>
+                            <option value="z">z</option>
+                        </select>
+                        <span class="opt-desc">初始化所有寄存器的值</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-initmem" data-flag="+vcs+initmem+" data-type="select" data-param-id="c-initmem-val" onchange="updateStats()">
+                        <label for="c-initmem"><span class="opt-flag">+vcs+initmem+</span>
+                        <select id="c-initmem-val" style="margin-left:8px">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="x" selected>x</option>
+                            <option value="z">z</option>
+                        </select>
+                        <span class="opt-desc">初始化所有存储器的值</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-nbaopt" data-flag="+nbaopt" data-type="flag" onchange="updateStats()">
+                        <label for="c-nbaopt"><span class="opt-flag">+nbaopt</span>
+                        <span class="opt-desc">删除非阻塞赋值中的延时</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-timescale" data-flag="-timescale=" data-type="param" data-param-id="c-timescale-val" onchange="updateStats()">
+                        <label for="c-timescale"><span class="opt-flag">-timescale=</span>
+                        <input type="text" id="c-timescale-val" placeholder="1ns/1ps" style="margin-left:8px">
+                        <span class="opt-desc">为无timescale的源文件指定时间精度</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="compile">
+                <div class="opt-group-title" onclick="toggleGroup(this)">增量编译与License</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-noIncrComp" data-flag="-noIncrComp" data-type="flag" onchange="updateStats()">
+                        <label for="c-noIncrComp"><span class="opt-flag">-noIncrComp</span>
+                        <span class="opt-desc">关闭增量编译</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-Mupdate" data-flag="-Mupdate" data-type="flag" onchange="updateStats()">
+                        <label for="c-Mupdate"><span class="opt-flag">-Mupdate</span>
+                        <span class="opt-desc">进行增量编译</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-licwait" data-flag="+vcs+lic+wait" data-type="flag" onchange="updateStats()">
+                        <label for="c-licwait"><span class="opt-flag">+vcs+lic+wait</span>
+                        <span class="opt-desc">一直等待license</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="c-prote" data-flag="+autoprotect" data-type="flag" onchange="updateStats()">
+                        <label for="c-prote"><span class="opt-flag">+autoprotect</span>
+                        <span class="opt-desc">生成加密源文件</span></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 仿真选项 ===== -->
+        <div id="tab-sim" class="tab-panel">
+            <div class="search-bar">
+                <input type="text" placeholder="搜索仿真选项..." oninput="filterOptions('sim', this.value)">
+            </div>
+
+            <div class="opt-group" data-category="sim">
+                <div class="opt-group-title" onclick="toggleGroup(this)">基础仿真控制</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-l" data-flag="-l" data-type="param" data-param-id="s-l-val" data-category="sim" onchange="updateStats()">
+                        <label for="s-l"><span class="opt-flag">-l</span>
+                        <input type="text" id="s-l-val" placeholder="sim.log" style="margin-left:8px">
+                        <span class="opt-desc">指定仿真log文件</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-ucli" data-flag="-ucli" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-ucli"><span class="opt-flag">-ucli</span>
+                        <span class="opt-desc">使能UCLI命令行交互</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-i" data-flag="-i" data-type="param" data-param-id="s-i-val" data-category="sim" onchange="updateStats()">
+                        <label for="s-i"><span class="opt-flag">-i</span>
+                        <input type="text" id="s-i-val" placeholder="run.tcl" style="margin-left:8px">
+                        <span class="opt-desc">指定CLI命令文件（配合-ucli）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-s" data-flag="-s" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-s"><span class="opt-flag">-s</span>
+                        <span class="opt-desc">仿真开始时即停止（配合-R +cli）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-nostdout" data-flag="+vcs+nostdout" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-nostdout"><span class="opt-flag">+vcs+nostdout</span>
+                        <span class="opt-desc">关闭$monitor/$display的标准输出</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-do" data-flag="-do" data-type="param" data-param-id="s-do-val" data-category="sim" onchange="updateStats()">
+                        <label for="s-do"><span class="opt-flag">-do</span>
+                        <input type="text" id="s-do-val" placeholder="run.tcl" style="margin-left:8px">
+                        <span class="opt-desc">仿真启动时执行的Tcl脚本</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="sim">
+                <div class="opt-group-title" onclick="toggleGroup(this)">波形Dump (FSDB / VPD / VCD)</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-fsdb" data-flag="-debug_access+all" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-fsdb"><span class="opt-flag">-debug_access+all</span>
+                        <span class="opt-desc">使能全部debug访问（支持FSDB dump）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-kdb" data-flag="-kdb" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-kdb"><span class="opt-flag">-kdb</span>
+                        <span class="opt-desc">生成Verdi KDB知识数据库</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-vcd" data-flag="-vcd" data-type="param" data-param-id="s-vcd-val" data-category="sim" onchange="updateStats()">
+                        <label for="s-vcd"><span class="opt-flag">-vcd</span>
+                        <input type="text" id="s-vcd-val" placeholder="dump.vcd" style="margin-left:8px">
+                        <span class="opt-desc">指定VCD波形文件名</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-pp" data-flag="-PP" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-pp"><span class="opt-flag">-PP</span>
+                        <span class="opt-desc">支持源码中$vcdpluson生成VPD文件</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="sim">
+                <div class="opt-group-title" onclick="toggleGroup(this)">性能分析</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-prof" data-flag="+prof" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-prof"><span class="opt-flag">+prof</span>
+                        <span class="opt-desc">生成vcs.prof文件（CPU耗时分析）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="s-race" data-flag="+race" data-type="flag" data-category="sim" onchange="updateStats()">
+                        <label for="s-race"><span class="opt-flag">+race</span>
+                        <span class="opt-desc">生成race.out文件（竞争冒险记录）</span></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 调试选项 ===== -->
+        <div id="tab-debug" class="tab-panel">
+            <div class="search-bar">
+                <input type="text" placeholder="搜索调试选项..." oninput="filterOptions('debug', this.value)">
+            </div>
+
+            <div class="opt-group" data-category="debug">
+                <div class="opt-group-title" onclick="toggleGroup(this)">Debug模式</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-debug" data-flag="-debug" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-debug"><span class="opt-flag">-debug</span>
+                        <span class="opt-desc">完全调试模式elab设计</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-debug_all" data-flag="-debug_all" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-debug_all"><span class="opt-flag">-debug_all</span>
+                        <span class="opt-desc">全部调试功能elab设计</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-RI" data-flag="-RI" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-RI"><span class="opt-flag">-RI</span>
+                        <span class="opt-desc">编译后启动VirSim交互模式</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-RIG" data-flag="-RIG" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-RIG"><span class="opt-flag">-RIG</span>
+                        <span class="opt-desc">不编译，直接用已有可执行文件启动VirSim</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-gui" data-flag="-gui" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-gui"><span class="opt-flag">-gui</span>
+                        <span class="opt-desc">启动DVE GUI调试</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="debug">
+                <div class="opt-group-title" onclick="toggleGroup(this)">Verdi联合调试</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-kdb" data-flag="-kdb" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-kdb"><span class="opt-flag">-kdb</span>
+                        <span class="opt-desc">编译时生成KDB（Verdi知识数据库）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-debug_access" data-flag="-debug_access+all" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-debug_access"><span class="opt-flag">-debug_access+all</span>
+                        <span class="opt-desc">使能全部debug访问权限</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-access+r" data-flag="-debug_access+r" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-access+r"><span class="opt-flag">-debug_access+r</span>
+                        <span class="opt-desc">只读debug访问权限</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="d-access+w" data-flag="-debug_access+r+w" data-type="flag" data-category="debug" onchange="updateStats()">
+                        <label for="d-access+w"><span class="opt-flag">-debug_access+r+w</span>
+                        <span class="opt-desc">读写debug访问权限</span></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 覆盖率选项 ===== -->
+        <div id="tab-coverage" class="tab-panel">
+            <div class="search-bar">
+                <input type="text" placeholder="搜索覆盖率选项..." oninput="filterOptions('coverage', this.value)">
+            </div>
+
+            <div class="opt-group" data-category="coverage">
+                <div class="opt-group-title" onclick="toggleGroup(this)">覆盖率类型</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-line" data-flag="-cm" data-type="coverage-flag" data-cm-val="line" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-line"><span class="opt-flag">-cm line</span>
+                        <span class="opt-desc">行覆盖率 (Line Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-cond" data-flag="-cm" data-type="coverage-flag" data-cm-val="cond" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-cond"><span class="opt-flag">-cm cond</span>
+                        <span class="opt-desc">条件覆盖率 (Condition Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-fsm" data-flag="-cm" data-type="coverage-flag" data-cm-val="fsm" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-fsm"><span class="opt-flag">-cm fsm</span>
+                        <span class="opt-desc">状态机覆盖率 (FSM Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-tgl" data-flag="-cm" data-type="coverage-flag" data-cm-val="tgl" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-tgl"><span class="opt-flag">-cm tgl</span>
+                        <span class="opt-desc">翻转覆盖率 (Toggle Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-branch" data-flag="-cm" data-type="coverage-flag" data-cm-val="branch" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-branch"><span class="opt-flag">-cm branch</span>
+                        <span class="opt-desc">分支覆盖率 (Branch Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-path" data-flag="-cm" data-type="coverage-flag" data-cm-val="path" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-path"><span class="opt-flag">-cm path</span>
+                        <span class="opt-desc">路径覆盖率 (Path Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-assert" data-flag="-cm" data-type="coverage-flag" data-cm-val="assert" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-assert"><span class="opt-flag">-cm assert</span>
+                        <span class="opt-desc">断言覆盖率 (Assert Coverage)</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-obc" data-flag="-cm" data-type="coverage-flag" data-cm-val="obc" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-obc"><span class="opt-flag">-cm obc</span>
+                        <span class="opt-desc">可观察覆盖率 (Observed Coverage)</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="opt-group" data-category="coverage">
+                <div class="opt-group-title" onclick="toggleGroup(this)">覆盖率配置</div>
+                <div class="opt-group-body">
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-dir" data-flag="-cm_dir" data-type="param" data-param-id="cv-dir-val" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-dir"><span class="opt-flag">-cm_dir</span>
+                        <input type="text" id="cv-dir-val" placeholder="./cov_output" style="margin-left:8px">
+                        <span class="opt-desc">覆盖率结果存放路径</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-name" data-flag="-cm_name" data-type="param" data-param-id="cv-name-val" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-name"><span class="opt-flag">-cm_name</span>
+                        <input type="text" id="cv-name-val" placeholder="cov_report" style="margin-left:8px">
+                        <span class="opt-desc">覆盖率结果文件名</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-log" data-flag="-cm_log" data-type="param" data-param-id="cv-log-val" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-log"><span class="opt-flag">-cm_log</span>
+                        <input type="text" id="cv-log-val" placeholder="cov.log" style="margin-left:8px">
+                        <span class="opt-desc">覆盖率log文件名</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-hier" data-flag="-cm_hier" data-type="param" data-param-id="cv-hier-val" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-hier"><span class="opt-flag">-cm_hier</span>
+                        <input type="text" id="cv-hier-val" placeholder="@hier.f" style="margin-left:8px">
+                        <span class="opt-desc">覆盖率统计范围文件</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-count" data-flag="-cm_count" data-type="flag" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-count"><span class="opt-flag">-cm_count</span>
+                        <span class="opt-desc">统计覆盖次数（而非仅是否覆盖）</span></label>
+                    </div>
+                    <div class="opt-row">
+                        <input type="checkbox" id="cv-cond2" data-flag="-cm_cond" data-type="param" data-param-id="cv-cond2-val" data-category="coverage" onchange="updateStats()">
+                        <label for="cv-cond2"><span class="opt-flag">-cm_cond</span>
+                        <select id="cv-cond2-val" style="margin-left:8px">
+                            <option value="basic">basic</option>
+                            <option value="std">std</option>
+                            <option value="full">full</option>
+                            <option value="allops">allops</option>
+                            <option value="event">event</option>
+                            <option value="anywidth">anywidth</option>
+                            <option value="for">for</option>
+                            <option value="tf">tf</option>
+                            <option value="sop">sop</option>
+                        </select>
+                        <span class="opt-desc">条件覆盖率细化统计方式</span></label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 用户自定义选项 ===== -->
+        <div id="tab-custom" class="tab-panel">
+            <div class="gen-section">
+                <h3>添加自定义选项</h3>
+                <div class="gen-row">
+                    <input type="text" id="custom-flag" placeholder="选项标志 (如 -my_option)" style="max-width:250px">
+                    <input type="text" id="custom-desc" placeholder="选项描述" style="flex:1">
+                    <select id="custom-cat" style="width:120px">
+                        <option value="compile">编译选项</option>
+                        <option value="sim">仿真选项</option>
+                        <option value="debug">调试选项</option>
+                        <option value="coverage">覆盖率</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addCustomOption()">添加</button>
+                </div>
+            </div>
+            <div id="custom-options-list" style="margin-top:16px"></div>
+        </div>
+
+        <!-- ===== 生成 Makefile 区域 ===== -->
+        <div class="gen-section">
+            <h3>生成 Makefile / 命令</h3>
+            <div class="gen-row">
+                <input type="text" id="gen-top" placeholder="顶层模块名 (如 tb_top)">
+                <input type="text" id="gen-src" placeholder="源文件列表 (如 rtl/*.v tb/*.sv)">
+            </div>
+            <div class="gen-btns">
+                <button class="btn btn-primary" onclick="generateCommand()">生成编译命令</button>
+                <button class="btn btn-primary" onclick="generateSimCommand()">生成仿真命令</button>
+                <button class="btn btn-success" onclick="generateMakefile()">生成 Makefile</button>
+                <button class="btn btn-secondary" onclick="generateVerdiCmd()">生成 Verdi 命令</button>
+                <button class="btn btn-secondary" onclick="copyOutput()">复制结果</button>
+                <button class="btn btn-secondary" onclick="clearAll()">清空所有选项</button>
+            </div>
+            <div class="output-area" id="output"></div>
+        </div>
+
+        <!-- ===== 预设方案管理 ===== -->
+        <div class="gen-section" style="margin-top:16px">
+            <h3>预设方案管理</h3>
+            <div class="gen-row">
+                <input type="text" id="preset-name" placeholder="方案名称 (如: 日常仿真 / 覆盖率收集)">
+                <button class="btn btn-primary" onclick="savePreset()">保存当前方案</button>
+            </div>
+            <div class="gen-btns" style="margin-bottom:12px">
+                <button class="btn btn-secondary" onclick="autoSave()">自动保存当前状态</button>
+                <button class="btn btn-secondary" onclick="loadAutoSave()">恢复上次保存</button>
+                <button class="btn btn-secondary" onclick="exportConfig()">导出配置 (JSON)</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">导入配置</button>
+                <input type="file" id="import-file" accept=".json" style="display:none" onchange="importConfig(event)">
+            </div>
+            <div id="preset-list"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // Tab切换
+        function switchTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + name).classList.add('active');
+        }
+
+        // 折叠组
+        function toggleGroup(el) {
+            el.parentElement.classList.toggle('collapsed');
+        }
+
+        // 搜索过滤
+        function filterOptions(category, keyword) {
+            const panel = document.getElementById('tab-' + category);
+            const rows = panel.querySelectorAll('.opt-row');
+            keyword = keyword.toLowerCase();
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(keyword) ? 'flex' : 'none';
+            });
+        }
+
+        // 统计
+        function updateStats() {
+            ['compile', 'sim', 'debug', 'coverage'].forEach(cat => {
+                let count = 0;
+                const panel = document.getElementById('tab-' + cat);
+                if (panel) {
+                    panel.querySelectorAll('input[type="checkbox"]:checked').forEach(() => count++);
+                }
+                document.getElementById('stat-' + cat).textContent = count;
+            });
+            // 自定义选项统计
+            const customCount = getCustomOptions().filter(o => o.checked).length;
+            document.getElementById('stat-custom').textContent = customCount;
+        }
+
+        // 收集编译选项字符串
+        function collectCompileOpts() {
+            let opts = [];
+            let cmVals = [];
+            const panel = document.getElementById('tab-compile');
+            panel.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                const flag = cb.dataset.flag;
+                const type = cb.dataset.type;
+                if (type === 'flag') {
+                    opts.push(flag);
+                } else if (type === 'param') {
+                    const val = document.getElementById(cb.dataset.paramId).value.trim();
+                    if (val) opts.push(flag + val);
+                } else if (type === 'select') {
+                    const val = document.getElementById(cb.dataset.paramId).value;
+                    opts.push(flag + val);
+                }
+            });
+            // 覆盖率
+            const covPanel = document.getElementById('tab-coverage');
+            covPanel.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                const type = cb.dataset.type;
+                if (type === 'coverage-flag') {
+                    cmVals.push(cb.dataset.cmVal);
+                } else if (type === 'flag') {
+                    opts.push(cb.dataset.flag);
+                } else if (type === 'param') {
+                    const val = document.getElementById(cb.dataset.paramId).value.trim();
+                    if (val) opts.push(cb.dataset.flag + ' ' + val);
+                } else if (type === 'select') {
+                    const val = document.getElementById(cb.dataset.paramId).value;
+                    opts.push(cb.dataset.flag + ' ' + val);
+                }
+            });
+            if (cmVals.length > 0) {
+                opts.unshift('-cm ' + cmVals.join('+'));
+            }
+            // 调试选项中编译相关的
+            const dbgPanel = document.getElementById('tab-debug');
+            dbgPanel.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                opts.push(cb.dataset.flag);
+            });
+            return opts;
+        }
+
+        // 收集仿真选项字符串
+        function collectSimOpts() {
+            let opts = [];
+            const panel = document.getElementById('tab-sim');
+            panel.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+                const flag = cb.dataset.flag;
+                const type = cb.dataset.type;
+                if (type === 'flag') {
+                    opts.push(flag);
+                } else if (type === 'param') {
+                    const val = document.getElementById(cb.dataset.paramId).value.trim();
+                    if (val) opts.push(flag + ' ' + val);
+                }
+            });
+            return opts;
+        }
+
+        function showOutput(text) {
+            const el = document.getElementById('output');
+            el.innerHTML = '<textarea id="output-text">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>';
+            el.classList.add('show');
+        }
+
+        function copyOutput() {
+            const ta = document.getElementById('output-text');
+            if (!ta) { alert('请先生成命令或Makefile'); return; }
+            ta.select();
+            document.execCommand('copy');
+            alert('已复制到剪贴板！');
+        }
+
+        // 生成编译命令
+        function generateCommand() {
+            const top = document.getElementById('gen-top').value.trim() || 'tb_top';
+            const src = document.getElementById('gen-src').value.trim() || 'rtl/*.v tb/*.sv';
+            const opts = collectCompileOpts().join(' \\\n    ');
+            const cmd = `vcs ${opts} \\\n    ${src} \\\n    -top ${top}`;
+            showOutput(cmd);
+        }
+
+        // 生成仿真命令
+        function generateSimCommand() {
+            const opts = collectSimOpts().join(' \\\n    ');
+            const cmd = `./simv ${opts}`;
+            showOutput(cmd);
+        }
+
+        // 生成Makefile
+        function generateMakefile() {
+            const top = document.getElementById('gen-top').value.trim() || 'tb_top';
+            const src = document.getElementById('gen-src').value.trim() || 'rtl/*.v tb/*.sv';
+            const compOpts = collectCompileOpts().join(' \\\n\t');
+            const simOpts = collectSimOpts().join(' \\\n\t');
+
+            const makefile = `# ============================================
+# VCS Simulation Makefile
+# Auto-generated by VCS Option Generator
+# ============================================
+
+# 设计配置
+TOP      = ` + top + `
+SRC      = ` + src + `
+SIMV     = simv
+
+# Verdi
+VERDI    = verdi
+
+# 时间戳
+TIMESTAMP = $(shell date +%Y%m%d_%H%M%S)
+
+# ---- 编译 ----
+compile:
+\tvcs \\
+\t` + compOpts + ` \\
+\t$(SRC) \\
+\t-top $(TOP)
+
+# ---- 仿真 ----
+sim:
+\t./$(SIMV) ` + (simOpts || '') + `
+
+# ---- 编译 + 仿真 ----
+run: compile sim
+
+# ---- 打开Verdi ----
+verdi:
+\t$(VERDI) -f $(SRC) -top $(TOP) &
+
+# ---- 打开Verdi + FSDB ----
+verdi_fsdb:
+\t$(VERDI) -dbdir simv.daidir -ssf *.fsdb &
+
+# ---- 查看覆盖率报告 ----
+cov_report:
+\turg -dir *.vdb -report cov_report
+
+# ---- 清理 ----
+clean:
+\trm -rf csrc simv.daidir/ *.vdb simv *.vpd *.vcd *.fsdb *.log *.prof *.key *.h
+\trm -rf DVEfiles ucli.key novas* *.log
+
+.PHONY: compile sim run verdi verdi_fsdb cov_report clean
+`;
+            showOutput(makefile);
+        }
+
+        // 生成Verdi命令
+        function generateVerdiCmd() {
+            const top = document.getElementById('gen-top').value.trim() || 'tb_top';
+            const src = document.getElementById('gen-src').value.trim() || 'rtl/*.v tb/*.sv';
+            const hasKdb = document.getElementById('d-kdb')?.checked;
+            let cmd;
+            if (hasKdb) {
+                cmd = `verdi -dbdir simv.daidir -ssf *.fsdb -top ${top} &`;
+            } else {
+                cmd = `verdi -f ${src} -top ${top} -ssf *.fsdb &`;
+            }
+            showOutput(cmd);
+        }
+
+        // 清空
+        function clearAll() {
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('input[type="text"]').forEach(inp => inp.value = '');
+            document.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
+            document.getElementById('output').classList.remove('show');
+            updateStats();
+        }
+
+        // ========================================
+        //  状态快照：收集 / 恢复
+        // ========================================
+        function captureState() {
+            const state = {};
+            // 所有 checkbox
+            state.checkboxes = {};
+            document.querySelectorAll('input[type="checkbox"][id]').forEach(cb => {
+                state.checkboxes[cb.id] = cb.checked;
+            });
+            // 所有 text input
+            state.textInputs = {};
+            document.querySelectorAll('input[type="text"][id]').forEach(inp => {
+                state.textInputs[inp.id] = inp.value;
+            });
+            // 所有 select
+            state.selects = {};
+            document.querySelectorAll('select[id]').forEach(sel => {
+                state.selects[sel.id] = sel.selectedIndex;
+            });
+            return state;
+        }
+
+        function applyState(state) {
+            if (!state) return;
+            if (state.checkboxes) {
+                Object.entries(state.checkboxes).forEach(([id, val]) => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = val;
+                });
+            }
+            if (state.textInputs) {
+                Object.entries(state.textInputs).forEach(([id, val]) => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = val;
+                });
+            }
+            if (state.selects) {
+                Object.entries(state.selects).forEach(([id, val]) => {
+                    const el = document.getElementById(id);
+                    if (el) el.selectedIndex = val;
+                });
+            }
+            updateStats();
+        }
+
+        // ========================================
+        //  localStorage 自动保存 / 恢复
+        // ========================================
+        const STORAGE_KEY = 'vcs_opt_gen_state';
+        const PRESET_KEY = 'vcs_opt_gen_presets';
+        const CUSTOM_KEY = 'vcs_opt_gen_custom';
+
+        function autoSave() {
+            const state = captureState();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            showToast('已自动保存当前状态');
+        }
+
+        function loadAutoSave() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) { showToast('没有找到上次保存的状态'); return; }
+            applyState(JSON.parse(raw));
+            showToast('已恢复上次保存的状态');
+        }
+
+        // ========================================
+        //  预设方案管理
+        // ========================================
+        function savePreset() {
+            const name = document.getElementById('preset-name').value.trim();
+            if (!name) { showToast('请输入方案名称'); return; }
+            const presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
+            presets[name] = {
+                state: captureState(),
+                time: new Date().toLocaleString('zh-CN')
+            };
+            localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+            document.getElementById('preset-name').value = '';
+            renderPresets();
+            showToast('方案 "' + name + '" 已保存');
+        }
+
+        function loadPreset(name) {
+            const presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
+            if (presets[name]) {
+                applyState(presets[name].state);
+                showToast('已加载方案 "' + name + '"');
+            }
+        }
+
+        function deletePreset(name) {
+            const presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
+            delete presets[name];
+            localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+            renderPresets();
+            showToast('方案 "' + name + '" 已删除');
+        }
+
+        function renderPresets() {
+            const presets = JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
+            const container = document.getElementById('preset-list');
+            const keys = Object.keys(presets);
+            if (keys.length === 0) {
+                container.innerHTML = '<div style="color:#64748b;padding:12px;font-size:0.88rem">暂无保存的方案</div>';
+                return;
+            }
+            container.innerHTML = keys.map(name => {
+                const p = presets[name];
+                return '<div class="preset-card">' +
+                    '<div class="preset-info">' +
+                        '<div class="preset-name">' + name + '</div>' +
+                        '<div class="preset-meta">' + p.time + '</div>' +
+                    '</div>' +
+                    '<div class="preset-actions">' +
+                        '<button class="btn-load" onclick="loadPreset(\'' + name.replace(/'/g, "\\'") + '\')">加载</button>' +
+                        '<button class="btn-del" onclick="deletePreset(\'' + name.replace(/'/g, "\\'") + '\')">删除</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        // ========================================
+        //  导入 / 导出配置 (JSON)
+        // ========================================
+        function exportConfig() {
+            const config = {
+                state: captureState(),
+                customOptions: JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'),
+                presets: JSON.parse(localStorage.getItem(PRESET_KEY) || '{}'),
+                exportTime: new Date().toLocaleString('zh-CN')
+            };
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'vcs_config_' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('配置已导出');
+        }
+
+        function importConfig(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    if (config.state) applyState(config.state);
+                    if (config.customOptions) {
+                        localStorage.setItem(CUSTOM_KEY, JSON.stringify(config.customOptions));
+                        renderCustomOptions();
+                    }
+                    if (config.presets) {
+                        localStorage.setItem(PRESET_KEY, JSON.stringify(config.presets));
+                        renderPresets();
+                    }
+                    showToast('配置已导入');
+                } catch (err) {
+                    showToast('导入失败: JSON格式错误');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ========================================
+        //  用户自定义选项
+        // ========================================
+        function getCustomOptions() {
+            return JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]');
+        }
+
+        function saveCustomOptions(list) {
+            localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+        }
+
+        function addCustomOption() {
+            const flag = document.getElementById('custom-flag').value.trim();
+            const desc = document.getElementById('custom-desc').value.trim();
+            const cat = document.getElementById('custom-cat').value;
+            if (!flag) { showToast('请输入选项标志'); return; }
+            const list = getCustomOptions();
+            list.push({ id: 'custom_' + Date.now(), flag, desc: desc || '用户自定义', category: cat, checked: false });
+            saveCustomOptions(list);
+            document.getElementById('custom-flag').value = '';
+            document.getElementById('custom-desc').value = '';
+            renderCustomOptions();
+            showToast('自定义选项已添加');
+        }
+
+        function deleteCustomOption(id) {
+            const list = getCustomOptions().filter(o => o.id !== id);
+            saveCustomOptions(list);
+            renderCustomOptions();
+        }
+
+        function toggleCustomOption(id) {
+            const list = getCustomOptions();
+            const item = list.find(o => o.id === id);
+            if (item) item.checked = !item.checked;
+            saveCustomOptions(list);
+            updateStats();
+        }
+
+        function renderCustomOptions() {
+            const list = getCustomOptions();
+            const container = document.getElementById('custom-options-list');
+            if (list.length === 0) {
+                container.innerHTML = '<div style="color:#64748b;padding:8px;font-size:0.85rem">暂无自定义选项</div>';
+                return;
+            }
+            const catNames = { compile: '编译', sim: '仿真', debug: '调试', coverage: '覆盖率' };
+            container.innerHTML = list.map(o => {
+                return '<div class="custom-opt-item">' +
+                    '<input type="checkbox" ' + (o.checked ? 'checked' : '') +
+                    ' onchange="toggleCustomOption(\'' + o.id + '\')">' +
+                    '<span class="opt-flag">' + o.flag + '</span>' +
+                    '<span class="opt-desc">' + o.desc + '</span>' +
+                    '<span class="custom-cat-tag">' + (catNames[o.category] || o.category) + '</span>' +
+                    '<button class="custom-del" onclick="deleteCustomOption(\'' + o.id + '\')">&times;</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        // 收集自定义选项到编译/仿真命令中
+        function collectCustomOpts(category) {
+            return getCustomOptions().filter(o => o.checked && o.category === category).map(o => o.flag);
+        }
+
+        // 修改 collectCompileOpts 和 collectSimOpts 以包含自定义选项
+        const _origCollectCompileOpts = collectCompileOpts;
+        collectCompileOpts = function() {
+            const opts = _origCollectCompileOpts();
+            return opts.concat(collectCustomOpts('compile')).concat(collectCustomOpts('debug')).concat(collectCustomOpts('coverage'));
+        };
+
+        const _origCollectSimOpts = collectSimOpts;
+        collectSimOpts = function() {
+            const opts = _origCollectSimOpts();
+            return opts.concat(collectCustomOpts('sim'));
+        };
+
+        // ========================================
+        //  Toast 提示
+        // ========================================
+        function showToast(msg) {
+            let toast = document.getElementById('toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast';
+                toast.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);' +
+                    'background:#334155;color:#e2e8f0;padding:10px 24px;border-radius:8px;font-size:0.9rem;' +
+                    'z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+        }
+
+        // ========================================
+        //  初始化
+        // ========================================
+        updateStats();
+        renderPresets();
+        renderCustomOptions();
+        // 自动恢复上次状态
+        loadAutoSave();
+    </script>
+</body>
+</html>
